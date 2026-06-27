@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Snake Game — nizar01q</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0a0f0a;
+      --surface:  #111811;
+      --green:    #39ff14;
+      --green-dim:#1a7a08;
+      --white:    #e8f0e8;
+      --muted:    #6b7f6b;
+      --grid:     rgba(57,255,20,0.04);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Grid background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Animated snake on canvas ── */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      opacity: 0.18;
+    }
+
+    /* ── Layout ── */
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0 20px;
+      border-bottom: 1px solid var(--green-dim);
+    }
+
+    .nav-logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--green);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .nav-link {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.1em;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: var(--green); }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 90px 0 60px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .hero-eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--green);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(2.6rem, 7vw, 4.2rem);
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      color: var(--white);
+      margin-bottom: 24px;
+    }
+
+    h1 .accent { color: var(--green); }
+
+    .hero-desc {
+      font-size: 1.05rem;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 420px;
+      margin-bottom: 36px;
+    }
+
+    /* ── CTA button ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 14px 28px;
+      border: 1.5px solid var(--green);
+      color: var(--bg);
+      background: var(--green);
+      transition: background 0.2s, color 0.2s, transform 0.15s;
+    }
+    .btn:hover {
+      background: transparent;
+      color: var(--green);
+      transform: translateY(-2px);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--green);
+      margin-left: 14px;
+    }
+    .btn-ghost:hover { background: var(--green); color: var(--bg); }
+
+    /* ── Mini preview grid ── */
+    .preview {
+      width: 160px;
+      height: 160px;
+      flex-shrink: 0;
+    }
+
+    #preview-canvas {
+      width: 160px;
+      height: 160px;
+      border: 1.5px solid var(--green-dim);
+      image-rendering: pixelated;
+    }
+
+    /* ── Stats row ── */
+    .stats {
+      display: flex;
+      gap: 48px;
+      padding: 36px 0;
+      border-top: 1px solid rgba(57,255,20,0.12);
+      border-bottom: 1px solid rgba(57,255,20,0.12);
+      margin-bottom: 72px;
+    }
+
+    .stat-val {
+      font-family: 'Space Mono', monospace;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--green);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ── Features ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 2px;
+      margin-bottom: 80px;
+    }
+
+    .feature {
+      background: var(--surface);
+      padding: 28px 24px;
+      border-left: 2px solid var(--green-dim);
+      transition: border-color 0.2s;
+    }
+    .feature:hover { border-color: var(--green); }
+
+    .feature-icon {
+      font-size: 1.4rem;
+      margin-bottom: 14px;
+    }
+
+    .feature-title {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--white);
+      margin-bottom: 8px;
+      letter-spacing: 0.04em;
+    }
+
+    .feature-desc {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    /* ── Install block ── */
+    .install {
+      background: var(--surface);
+      border: 1px solid var(--green-dim);
+      padding: 36px;
+      margin-bottom: 80px;
+    }
+
+    .install h2 {
+      font-family: 'Space Mono', monospace;
+      font-size: 1rem;
+      color: var(--white);
+      margin-bottom: 20px;
+      letter-spacing: 0.06em;
+    }
+
+    .code-block {
+      background: var(--bg);
+      border: 1px solid rgba(57,255,20,0.15);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--green);
+      position: relative;
+      overflow-x: auto;
+    }
+
+    .code-block .comment { color: var(--muted); }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--green-dim);
+      padding: 28px 0 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-text {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    .footer-link {
+      color: var(--green);
+      text-decoration: none;
+    }
+    .footer-link:hover { text-decoration: underline; }
+
+    @media (max-width: 600px) {
+      .hero { grid-template-columns: 1fr; }
+      .preview { display: none; }
+      .stats { gap: 28px; flex-wrap: wrap; }
+      .btn-ghost { margin-left: 0; margin-top: 12px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div class="wrap">
+
+  <nav>
+    <span class="nav-logo">// snake-game</span>
+    <a class="nav-link" href="https://github.com/nizar01q/Snake-Game" target="_blank" rel="noopener">
+      github ↗
+    </a>
+  </nav>
+
+  <section class="hero">
+    <div>
+      <p class="hero-eyebrow">Python · Pygame · Classic Arcade</p>
+      <h1>Snake<br/><span class="accent">Game.</span></h1>
+      <p class="hero-desc">
+        A clean Python implementation of the classic Snake arcade game — built with Pygame, complete with score tracking, sound effects, and a custom food system.
+      </p>
+      <div>
+        <a class="btn" href="https://github.com/nizar01q/Snake-Game/archive/refs/heads/main.zip">
+          ↓ Download
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/nizar01q/Snake-Game" target="_blank" rel="noopener">
+          View Source
+        </a>
+      </div>
+    </div>
+    <div class="preview">
+      <canvas id="preview-canvas" width="160" height="160"></canvas>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div>
+      <div class="stat-val">4</div>
+      <div class="stat-label">Source Files</div>
+    </div>
+    <div>
+      <div class="stat-val">2</div>
+      <div class="stat-label">Sound FX</div>
+    </div>
+    <div>
+      <div class="stat-val">∞</div>
+      <div class="stat-label">High Scores</div>
+    </div>
+    <div>
+      <div class="stat-val">100%</div>
+      <div class="stat-label">Python</div>
+    </div>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">🐍</div>
+      <div class="feature-title">Smooth Movement</div>
+      <div class="feature-desc">Fluid snake controls with keyboard input and responsive directional logic.</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🍎</div>
+      <div class="feature-title">Food System</div>
+      <div class="feature-desc">Custom food spawning with a satisfying eat sound effect on every pick-up.</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🏆</div>
+      <div class="feature-title">Score Tracking</div>
+      <div class="feature-desc">Persistent high score saved to disk — see how far you can go.</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">💀</div>
+      <div class="feature-title">Game Over Screen</div>
+      <div class="feature-desc">Dedicated game-over state with audio cue and instant restart.</div>
+    </div>
+  </div>
+
+  <div class="install">
+    <h2>// Run it locally</h2>
+    <div class="code-block">
+      <span class="comment"># 1. Clone the repo</span><br/>
+      git clone https://github.com/nizar01q/Snake-Game.git<br/>
+      cd Snake-Game
+    </div>
+    <div class="code-block">
+      <span class="comment"># 2. Install dependency</span><br/>
+      pip install pygame
+    </div>
+    <div class="code-block">
+      <span class="comment"># 3. Play</span><br/>
+      python main.py
+    </div>
+  </div>
+
+  <footer>
+    <span class="footer-text">Built by <a class="footer-link" href="https://github.com/nizar01q" target="_blank" rel="noopener">nizar01q</a></span>
+    <span class="footer-text"><a class="footer-link" href="https://github.com/nizar01q/Snake-Game" target="_blank" rel="noopener">github.com/nizar01q/Snake-Game ↗</a></span>
+  </footer>
+
+</div>
+
+<script>
+  /* ── Background ambient snake ── */
+  (function() {
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    const CELL = 40;
+    let W, H, cols, rows;
+    let snake = [], dir = {x:1,y:0}, food = {x:0,y:0};
+    let frame = 0;
+
+    function resize() {
+      W = canvas.width  = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      cols = Math.floor(W / CELL);
+      rows = Math.floor(H / CELL);
+      snake = [{x: Math.floor(cols/2), y: Math.floor(rows/2)}];
+      placeFood();
+    }
+
+    function placeFood() {
+      food = {x: Math.floor(Math.random()*cols), y: Math.floor(Math.random()*rows)};
+    }
+
+    function step() {
+      const head = snake[0];
+      const dx = food.x - head.x, dy = food.y - head.y;
+      if (Math.abs(dx) > Math.abs(dy)) { dir = {x: Math.sign(dx), y:0}; }
+      else                              { dir = {x:0, y: Math.sign(dy)}; }
+
+      const nx = ((head.x + dir.x) + cols) % cols;
+      const ny = ((head.y + dir.y) + rows) % rows;
+      snake.unshift({x:nx, y:ny});
+
+      if (nx === food.x && ny === food.y) { placeFood(); }
+      else if (snake.length > 30) { snake.pop(); }
+    }
+
+    function draw() {
+      ctx.clearRect(0,0,W,H);
+      snake.forEach((seg, i) => {
+        const alpha = 1 - i / snake.length;
+        ctx.fillStyle = `rgba(57,255,20,${alpha})`;
+        ctx.fillRect(seg.x*CELL+2, seg.y*CELL+2, CELL-4, CELL-4);
+      });
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(food.x*CELL+6, food.y*CELL+6, CELL-12, CELL-12);
+    }
+
+    function loop() {
+      frame++;
+      if (frame % 6 === 0) step();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    loop();
+  })();
+
+  /* ── Preview canvas mini game ── */
+  (function() {
+    const canvas = document.getElementById('preview-canvas');
+    const ctx = canvas.getContext('2d');
+    const CELL = 10, COLS = 16, ROWS = 16;
+    let snake = [{x:8,y:8},{x:7,y:8},{x:6,y:8}];
+    let dir = {x:1,y:0}, food = {x:12,y:5};
+    let frame = 0;
+
+    function step() {
+      const head = snake[0];
+      const dx = food.x - head.x, dy = food.y - head.y;
+      if (Math.abs(dx) > Math.abs(dy)) { dir = {x: Math.sign(dx)||1, y:0}; }
+      else                              { dir = {x:0, y: Math.sign(dy)||1}; }
+
+      const nx = ((head.x + dir.x) + COLS) % COLS;
+      const ny = ((head.y + dir.y) + ROWS) % ROWS;
+      snake.unshift({x:nx,y:ny});
+      if (nx===food.x && ny===food.y) {
+        food = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)};
+      } else {
+        snake.pop();
+      }
+    }
+
+    function draw() {
+      ctx.fillStyle = '#0a0f0a';
+      ctx.fillRect(0,0,160,160);
+
+      // grid
+      ctx.strokeStyle = 'rgba(57,255,20,0.06)';
+      ctx.lineWidth = 0.5;
+      for (let x=0;x<=COLS;x++) { ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,160); ctx.stroke(); }
+      for (let y=0;y<=ROWS;y++) { ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(160,y*CELL); ctx.stroke(); }
+
+      snake.forEach((seg, i) => {
+        const alpha = 1 - i / (snake.length + 2);
+        ctx.fillStyle = `rgba(57,255,20,${alpha})`;
+        ctx.fillRect(seg.x*CELL+1,seg.y*CELL+1,CELL-2,CELL-2);
+      });
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(food.x*CELL+2,food.y*CELL+2,CELL-4,CELL-4);
+    }
+
+    function loop() {
+      frame++;
+      if (frame % 8 === 0) step();
+      draw();
+      requestAnimationFrame(loop);
+    }
+    loop();
+  })();
+</script>
+</body>
+</html>
